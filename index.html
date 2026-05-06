@@ -1,0 +1,738 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor Plotter | Auto.js & ZIP (Edição Artística Completa)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        #previewContainer:fullscreen { background-color: #111827; display: flex; align-items: center; justify-content: center; padding: 1rem;}
+        #previewContainer:fullscreen #previewCanvas { background-color: white; max-height: 100vh; max-width: 100vw; object-fit: contain; box-shadow: 0 0 20px rgba(0,0,0,0.5);}
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .layer-checkbox { accent-color: #10b981; width: 1.25rem; height: 1.25rem; cursor: pointer; }
+        .flip-btn.active { background-color: #059669; border-color: #047857; color: white; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col font-sans">
+
+    <!-- Cabeçalho -->
+    <header class="bg-gray-800 p-4 shadow-md text-center shrink-0 border-b border-gray-700">
+        <h1 class="text-2xl font-bold text-white tracking-tight">Plotter <span class="text-emerald-400">Studio</span></h1>
+        <p class="text-xs text-gray-400 mt-1">Transformação, Edição e Geração Vetorial Artística para Auto.js</p>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row p-4 gap-6 max-w-7xl mx-auto w-full">
+        
+        <!-- Coluna Esquerda: Configurações -->
+        <aside class="flex flex-col gap-4 w-full lg:w-1/3 shrink-0 h-[calc(100vh-100px)] overflow-y-auto pr-2 pb-10">
+            
+            <!-- Secção 1: Arquivo e Resolução -->
+            <section class="bg-gray-800 p-5 rounded-xl shadow border border-gray-700">
+                <label class="block text-sm font-bold mb-3 text-white border-b border-gray-600 pb-2">1. Imagem e Tela</label>
+                <input type="file" id="fileInput" accept="image/png, image/jpeg, image/svg+xml" 
+                       class="block w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer mb-4"/>
+                
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Largura Tela (X)</label>
+                        <input type="number" id="resX" value="1100" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Altura Tela (Y)</label>
+                        <input type="number" id="resY" value="2442" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Secção 2: Formatação -->
+            <section class="bg-gray-800 p-5 rounded-xl shadow border border-gray-700">
+                <label class="block text-sm font-bold mb-3 text-white border-b border-gray-600 pb-2">2. Formatação da Imagem</label>
+                
+                <div class="mb-3">
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Nome do Script</label>
+                    <input type="text" id="scriptName" value="Meu_Desenho" placeholder="Nome do arquivo final..." class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm font-medium">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Tamanho (%)</label>
+                        <input type="number" id="transformScale" value="100" min="1" max="1000" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Rotação (°)</label>
+                        <input type="number" id="transformRotate" value="0" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Posição X</label>
+                        <input type="number" id="transformX" value="0" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Posição Y</label>
+                        <input type="number" id="transformY" value="0" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm text-center">
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mt-4">
+                    <button id="flipXBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded border border-gray-600 transition flex items-center justify-center gap-1 flip-btn">
+                        <span>↔️</span> Espelhar H
+                    </button>
+                    <button id="flipYBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded border border-gray-600 transition flex items-center justify-center gap-1 flip-btn">
+                        <span>↕️</span> Espelhar V
+                    </button>
+                </div>
+            </section>
+
+            <!-- Secção 3: Camadas e Tempo -->
+            <section class="bg-gray-800 p-5 rounded-xl shadow border border-gray-700 flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-gray-600 pb-2 mb-1">
+                    <label class="block text-sm font-bold text-white">3. Estilo e Camadas</label>
+                </div>
+
+                <label class="block text-xs font-medium mb-1 text-gray-400">Estilo de Hachura</label>
+                <select id="hatchStyle" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm cursor-pointer mb-2">
+                    <option value="mista">Mista (Inteligente)</option>
+                    <option value="diagonal">Apenas Diagonais</option>
+                    <option value="horizontal">Apenas Horizontais</option>
+                    <option value="cruzada">Cruzada Ortogonal</option>
+                    <option value="pontilhado">Pontilhado (Stippling)</option>
+                    <option value="aleatorio">Aleatório (Random)</option>
+                    <option value="zigzag">Zigzag Contínuo</option>
+                    <option value="irregulares">Linhas Irregulares</option>
+                    <option value="desenhoamao">Desenho à Mão (Hand-drawn)</option>
+                </select>
+                
+                <label class="flex items-center gap-3 p-2 bg-gray-700/50 rounded hover:bg-gray-700 transition cursor-pointer">
+                    <input type="checkbox" id="layerFundo" class="layer-checkbox">
+                    <div class="flex flex-col"><span class="text-sm font-semibold text-gray-200">Camada 1: Fundo Suave</span></div>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-700/50 rounded hover:bg-gray-700 transition cursor-pointer">
+                    <input type="checkbox" id="layerHachura" class="layer-checkbox" checked>
+                    <div class="flex flex-col"><span class="text-sm font-semibold text-gray-200">Camada 2: Sombras</span></div>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-700/50 rounded hover:bg-gray-700 transition cursor-pointer">
+                    <input type="checkbox" id="layerDetalhes" class="layer-checkbox" checked>
+                    <div class="flex flex-col"><span class="text-sm font-semibold text-gray-200">Camada 3: Detalhes</span></div>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-emerald-900/20 border border-emerald-800/40 rounded hover:bg-emerald-900/40 transition cursor-pointer">
+                    <input type="checkbox" id="layerBordas" class="layer-checkbox" checked>
+                    <div class="flex flex-col"><span class="text-sm font-semibold text-emerald-300">Camada 4: Contornos Fluídos</span></div>
+                </label>
+
+                <div class="mt-2">
+                    <div class="flex justify-between mb-1">
+                        <label class="block text-xs font-medium text-gray-400">Densidade/Escala do Efeito</label>
+                        <span id="cellSizeValue" class="text-xs font-bold text-emerald-400">12px</span>
+                    </div>
+                    <input type="range" id="cellSize" min="6" max="48" value="12" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="flex justify-between items-center border-b border-gray-600 pb-2 mt-4 mb-1">
+                    <label class="block text-sm font-bold text-white">4. Tempo e Notificações</label>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-2">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Minutos</label>
+                        <input type="number" id="timeMin" value="2" min="0" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Segundos</label>
+                        <input type="number" id="timeSec" value="0" min="0" max="59" class="w-full bg-gray-700 rounded p-2 text-white border border-gray-600 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                </div>
+
+                <!-- Aviso Sonoro -->
+                <label class="flex items-center gap-3 p-2 mt-1 bg-yellow-900/20 border border-yellow-700/50 rounded hover:bg-yellow-900/40 transition cursor-pointer">
+                    <input type="checkbox" id="beepNotify" class="layer-checkbox" style="accent-color: #eab308;" checked>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-semibold text-yellow-500">Notificação Bip (Auto.js)</span>
+                        <span class="text-[10px] text-yellow-200/70">Toca som ao terminar desenho</span>
+                    </div>
+                </label>
+            </section>
+
+            <button id="updateBtn" disabled class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 sticky bottom-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Atualizar Visualização
+            </button>
+        </aside>
+
+        <!-- Coluna Direita: Preview e Botões -->
+        <section class="flex flex-col gap-4 flex-1">
+            <div class="bg-gray-800 p-3 rounded-xl shadow border border-gray-700 flex flex-col flex-1 min-h-[500px]">
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <label class="block text-sm font-bold text-white">Tela de Arte Real</label>
+                    <span class="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">Pincel: 4px</span>
+                </div>
+                
+                <div id="previewContainer" class="relative w-full flex-1 bg-[#111827] rounded-lg overflow-hidden border border-gray-600 flex items-center justify-center">
+                    <span id="placeholderText" class="absolute text-gray-500 pointer-events-none flex flex-col items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        Aguardando imagem...
+                    </span>
+                    <canvas id="previewCanvas" class="w-full h-full object-contain bg-white hidden shadow-lg"></canvas>
+                    <button id="fullscreenBtn" class="absolute bottom-3 right-3 bg-black/70 hover:bg-emerald-600 text-white p-2.5 rounded-full backdrop-blur-md transition-all hidden shadow-lg z-10" title="Ver em Ecrã Inteiro">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                    </button>
+                </div>
+                <div id="statusText" class="text-center text-xs text-emerald-400 mt-2 font-mono hidden"></div>
+            </div>
+
+            <!-- Botões de Exportação -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="generateZipBtn" disabled class="w-full bg-slate-700 hover:bg-slate-600 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-4 rounded-xl shadow-lg border border-slate-600 transition-all flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Baixar Macro Android (.zip)
+                </button>
+
+                <button id="generateJsBtn" disabled class="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-4 rounded-xl shadow-lg border border-yellow-700 transition-all flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Exportar Auto.js (.js)
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const resXInput = document.getElementById('resX');
+        const resYInput = document.getElementById('resY');
+        
+        // Transformações
+        const scriptNameInput = document.getElementById('scriptName');
+        const transformScale = document.getElementById('transformScale');
+        const transformRotate = document.getElementById('transformRotate');
+        const transformX = document.getElementById('transformX');
+        const transformY = document.getElementById('transformY');
+        const flipXBtn = document.getElementById('flipXBtn');
+        const flipYBtn = document.getElementById('flipYBtn');
+
+        const cellSizeInput = document.getElementById('cellSize');
+        const cellSizeValue = document.getElementById('cellSizeValue');
+        const hatchStyleSelect = document.getElementById('hatchStyle');
+        const timeMinInput = document.getElementById('timeMin');
+        const timeSecInput = document.getElementById('timeSec');
+        const beepNotifyInput = document.getElementById('beepNotify');
+        
+        const layers = [
+            document.getElementById('layerFundo'),
+            document.getElementById('layerHachura'),
+            document.getElementById('layerDetalhes'),
+            document.getElementById('layerBordas')
+        ];
+
+        const previewCanvas = document.getElementById('previewCanvas');
+        const placeholderText = document.getElementById('placeholderText');
+        const generateZipBtn = document.getElementById('generateZipBtn');
+        const generateJsBtn = document.getElementById('generateJsBtn');
+        const updateBtn = document.getElementById('updateBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const statusText = document.getElementById('statusText');
+
+        let originalImage = null;
+        let finalScriptPaths = []; 
+        let isFlipX = false;
+        let isFlipY = false;
+
+        // Listeners UI
+        cellSizeInput.addEventListener('input', (e) => { cellSizeValue.textContent = `${e.target.value}px`; });
+        
+        flipXBtn.addEventListener('click', () => { 
+            isFlipX = !isFlipX; 
+            flipXBtn.classList.toggle('active', isFlipX);
+        });
+        flipYBtn.addEventListener('click', () => { 
+            isFlipY = !isFlipY; 
+            flipYBtn.classList.toggle('active', isFlipY);
+        });
+
+        updateBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+            const originalText = updateBtn.innerHTML;
+            updateBtn.innerHTML = "A processar...";
+            updateBtn.disabled = true;
+            setTimeout(() => {
+                processImage();
+                updateBtn.innerHTML = originalText;
+                updateBtn.disabled = false;
+            }, 50);
+        });
+
+        // Carregar Ficheiro e Definir Nome Automático
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Extrai o nome do ficheiro sem extensão
+            const rawName = file.name.replace(/\.[^/.]+$/, "");
+            scriptNameInput.value = rawName || "Desenho_Autojs";
+
+            // Reseta Transformações
+            transformScale.value = "100";
+            transformRotate.value = "0";
+            transformX.value = "0";
+            transformY.value = "0";
+            isFlipX = false; isFlipY = false;
+            flipXBtn.classList.remove('active'); flipYBtn.classList.remove('active');
+
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                originalImage = img;
+                placeholderText.classList.add('hidden');
+                previewCanvas.classList.remove('hidden');
+                fullscreenBtn.classList.remove('hidden');
+                generateZipBtn.disabled = false;
+                generateJsBtn.disabled = false;
+                updateBtn.disabled = false;
+                
+                processImage();
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        });
+
+        function getBrightness(imgData, w, h, x, y) {
+            if (x < 0 || x >= w || y < 0 || y >= h) return 255;
+            const idx = (y * w + x) * 4;
+            return (imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114);
+        }
+
+        // --- FUNÇÕES AUXILIARES DE DESENHO ---
+        function createZigzag(x1, y1, x2, y2, frequency, amplitude) {
+            const points = [];
+            const dx = x2 - x1, dy = y2 - y1;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            const steps = Math.max(2, Math.floor(distance / frequency));
+            const ux = dx / distance, uy = dy / distance; // Vetor unitário
+            const perpX = -uy, perpY = ux; // Vetor perpendicular
+
+            for(let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const currentX = x1 + dx * t;
+                const currentY = y1 + dy * t;
+                const offset = (i % 2 === 0 ? 1 : -1) * amplitude;
+                points.push({
+                    x: currentX + perpX * offset,
+                    y: currentY + perpY * offset
+                });
+            }
+            return points;
+        }
+
+        function createIrregularLine(x1, y1, x2, y2, roughness) {
+            const points = [];
+            const dx = x2 - x1, dy = y2 - y1;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            const steps = Math.max(2, Math.floor(distance / 10));
+            
+            points.push({x: x1, y: y1});
+            for(let i = 1; i < steps; i++) {
+                const t = i / steps;
+                const currentX = x1 + dx * t;
+                const currentY = y1 + dy * t;
+                const rx = (Math.random() - 0.5) * roughness;
+                const ry = (Math.random() - 0.5) * roughness;
+                points.push({x: currentX + rx, y: currentY + ry});
+            }
+            points.push({x: x2, y: y2});
+            return points;
+        }
+
+        function createHandDrawnHatch(x, y, cellSize, density, roughness) {
+            const paths = [];
+            const numLines = Math.floor(density * cellSize / 2); // Densidade varia número de linhas
+
+            for(let i = 0; i < numLines; i++) {
+                const startX = x + Math.random() * cellSize;
+                const startY = y + Math.random() * cellSize;
+                const length = cellSize * (0.5 + Math.random()); // Comprimento variável
+                const angle = (Math.random() - 0.5) * Math.PI + (Math.PI/4); // Ângulo principal + variação
+                const endX = startX + Math.cos(angle) * length;
+                const endY = startY + Math.sin(angle) * length;
+
+                // Adiciona uma ligeira curva ou "barriga" na linha
+                const midX = (startX + endX) / 2 + (Math.random() - 0.5) * roughness;
+                const midY = (startY + endY) / 2 + (Math.random() - 0.5) * roughness;
+                
+                // Aproximação de curva quadrática com 3 pontos
+                paths.push({ layer: 2, points: [{x: startX, y: startY}, {x: midX, y: midY}, {x: endX, y: endY}] });
+            }
+            return paths;
+        }
+
+        function createSmoothPath(points, tension) {
+            if (points.length < 3) return points;
+            const smoothedPoints = [];
+            // Implementação simples de Catmull-Rom Spline ou similar (simplificada)
+            // Para o Auto.js, que lê segmentos retos, a "suavização" aqui significa
+            // adicionar mais pontos intermédios que formam visualmente uma curva.
+            for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[Math.max(0, i-1)];
+                const p1 = points[i];
+                const p2 = points[i+1];
+                const p3 = points[Math.min(points.length-1, i+2)];
+
+                for(let t = 0; t < 1; t+=0.2) { // 5 segmentos por ponto original
+                    const tt = t*t, ttt = tt*t;
+                    const q1 = -ttt + 2*tt - t;
+                    const q2 = 3*ttt - 5*tt + 2;
+                    const q3 = -3*ttt + 4*tt + t;
+                    const q4 = ttt - tt;
+                    const tx = 0.5 * (p0.x*q1 + p1.x*q2 + p2.x*q3 + p3.x*q4);
+                    const ty = 0.5 * (p0.y*q1 + p1.y*q2 + p2.y*q3 + p3.y*q4);
+                    smoothedPoints.push({x: tx, y: ty});
+                }
+            }
+            smoothedPoints.push(points[points.length-1]);
+            return smoothedPoints;
+        }
+
+        // --- MOTOR DE PROCESSAMENTO ---
+        function processImage() {
+            if (!originalImage) return;
+
+            const hiddenCanvas = document.createElement('canvas');
+            const ctx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+            
+            const resX = parseInt(resXInput.value) || 1100;
+            const resY = parseInt(resYInput.value) || 2442;
+            const cellSize = parseInt(cellSizeInput.value) || 12;
+            const style = hatchStyleSelect.value;
+            
+            // Valores de Transformação
+            const scalePct = (parseFloat(transformScale.value) || 100) / 100;
+            const rotateDeg = parseFloat(transformRotate.value) || 0;
+            const mvX = parseFloat(transformX.value) || 0;
+            const mvY = parseFloat(transformY.value) || 0;
+
+            hiddenCanvas.width = resX; hiddenCanvas.height = resY;
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, resX, resY);
+            
+            ctx.save();
+            const centerX = (resX / 2) + mvX;
+            const centerY = (resY / 2) + mvY;
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotateDeg * Math.PI / 180);
+            ctx.scale(isFlipX ? -1 : 1, isFlipY ? -1 : 1);
+            
+            const usableWidth = resX * 0.9; const usableHeight = resY * 0.8;
+            const baseScale = Math.min(usableWidth / originalImage.width, usableHeight / originalImage.height);
+            const finalScale = baseScale * scalePct;
+
+            ctx.scale(finalScale, finalScale);
+            ctx.drawImage(originalImage, -originalImage.width / 2, -originalImage.height / 2);
+            ctx.restore();
+
+            const imgData = ctx.getImageData(0, 0, resX, resY).data;
+            finalScriptPaths = [];
+            
+            const addSegment = (layerIdx, x1, y1, x2, y2) => {
+                finalScriptPaths.push({ layer: layerIdx, points: [{x: x1, y: y1}, {x: x2, y: y2}] });
+            };
+            const addPolyline = (layerIdx, points) => {
+                if(points && points.length >= 2) finalScriptPaths.push({ layer: layerIdx, points: points });
+            };
+
+            // BoundBox Calculation
+            let minX = resX, minY = resY, maxX = 0, maxY = 0, hasContent = false;
+            for (let y = 0; y < resY; y += 8) { for (let x = 0; x < resX; x += 8) {
+                if (getBrightness(imgData, resX, resY, x, y) < 250) {
+                    if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y; hasContent = true;
+                }
+            }}
+            if (!hasContent) { minX = 0; minY = 0; maxX = resX; maxY = resY; }
+            else { minX = Math.max(0, minX - cellSize*2); minY = Math.max(0, minY - cellSize*2); maxX = Math.min(resX, maxX + cellSize*2); maxY = Math.min(resY, maxY + cellSize*2); }
+
+            // Layer 1: Fundo
+            if (layers[0].checked) {
+                const bgStep = cellSize * 2.5;
+                for (let y = minY; y < maxY; y += bgStep) { for (let x = minX; x < maxX; x += bgStep) {
+                    if (getBrightness(imgData, resX, resY, x, y) > 240) addPolyline(1, createIrregularLine(x, y+bgStep/2, x+bgStep, y+bgStep/2, 3));
+                }}
+            }
+
+            // Layer 2: Sombras e Hachuras Artísticas
+            if (layers[1].checked) {
+                for (let y = minY; y < maxY; y += cellSize) { for (let x = minX; x < maxX; x += cellSize) {
+                    let totalB = 0, count = 0;
+                    for (let cy = 0; cy < cellSize; cy += 2) { for (let cx = 0; cx < cellSize; cx += 2) {
+                        totalB += getBrightness(imgData, resX, resY, x+cx, y+cy); count++;
+                    }}
+                    const avgBrightness = count > 0 ? totalB / count : 255;
+                    
+                    if (avgBrightness < 240) {
+                        const s = cellSize - 1; const h = s/2;
+                        const density = 1 - (avgBrightness / 255); // 0 (claro) a 1 (escuro)
+                        
+                        if (style === 'mista') {
+                            // Misto Inteligente: Usa estilos diferentes baseado na escuridão
+                            if (avgBrightness < 60) finalScriptPaths.push(...createHandDrawnHatch(x, y, cellSize, density * 4, 4)); // Muito escuro = Hand-drawn denso
+                            else if (avgBrightness < 120) addPolyline(2, createZigzag(x, y+h, x+s, y+h, cellSize/3, cellSize/6)); // Escuro = Zigzag
+                            else if (avgBrightness < 180) addPolyline(2, createIrregularLine(x+h, y, x+h, y+s, 4)); // Médio = Linha Irregular
+                            else { // Claro = Pontilhado (Stippling)
+                                const numDots = Math.floor(density * cellSize * cellSize / 10);
+                                for(let i=0; i<numDots; i++) {
+                                    const dotX = x + Math.random()*s; const dotY = y + Math.random()*s;
+                                    addSegment(2, dotX, dotY, dotX+1, dotY);
+                                }
+                            }
+                        } else if (style === 'desenhoamao') {
+                            finalScriptPaths.push(...createHandDrawnHatch(x, y, cellSize, density * 3, 5));
+                        } else if (style === 'pontilhado') {
+                            const numDots = Math.floor(density * cellSize * cellSize / 5);
+                            for(let i=0; i<numDots; i++) {
+                                const dotX = x + Math.random()*s; const dotY = y + Math.random()*s;
+                                addSegment(2, dotX, dotY, dotX+1, dotY);
+                            }
+                        } else if (style === 'aleatorio') {
+                            const numLines = Math.floor(density * 5);
+                            for(let i=0; i<numLines; i++) {
+                                const angle = Math.random() * Math.PI * 2; const len = Math.random() * cellSize;
+                                const sx = x + Math.random()*s; const sy = y + Math.random()*s;
+                                addSegment(2, sx, sy, sx + Math.cos(angle)*len, sy + Math.sin(angle)*len);
+                            }
+                        } else if (style === 'zigzag') {
+                             addPolyline(2, createZigzag(x, y+h, x+s, y+h, cellSize / (2*density), cellSize * density / 2));
+                        } else if (style === 'irregulares') {
+                            const rough = cellSize * density;
+                            if (avgBrightness < 120) { 
+                                addPolyline(2, createIrregularLine(x, y+h, x+s, y+h, rough)); 
+                                addPolyline(2, createIrregularLine(x+h, y, x+h, y+s, rough));
+                            } else { 
+                                addPolyline(2, createIrregularLine(x, y+h, x+s, y+h, rough/2)); 
+                            }
+                        } else {
+                            // Estilos Clássicos (Diagonal, Horizontal, Cruzada) - Mantidos
+                            const addHatch = (dx1, dy1, dx2, dy2) => addSegment(2, x+dx1, y+dy1, x+dx2, y+dy2);
+                            if (style === 'diagonal') { avgBrightness < 120 ? (addHatch(0,0,s,s), addHatch(s,0,0,s)) : addHatch(0,0,s,s); }
+                            else if (style === 'horizontal') { avgBrightness < 120 ? (addHatch(0,h,s,h), addHatch(0,h/2,s,h/2)) : addHatch(0,h,s,h); }
+                            else if (style === 'cruzada') { avgBrightness < 120 ? (addHatch(0,h,s,h), addHatch(h,0,h,s)) : addHatch(0,h,s,h); }
+                        }
+                    }
+                }}
+            }
+
+            // Layer 3 & 4: Detalhes e Bordas Suavizadas
+            if (layers[2].checked || layers[3].checked) {
+                const edgePixels = new Uint8Array(resX * resY);
+                for (let y = minY; y < maxY - 1; y++) { for (let x = minX; x < maxX - 1; x++) {
+                    const bCenter = getBrightness(imgData, resX, resY, x, y);
+                    const maxDiff = Math.max(Math.abs(bCenter - getBrightness(imgData, resX, resY, x + 1, y)), Math.abs(bCenter - getBrightness(imgData, resX, resY, x, y + 1)));
+                    if (layers[2].checked && maxDiff > 20 && maxDiff <= 50 && Math.random() > 0.5) {
+                        addPolyline(3, createIrregularLine(x, y, x+2, y+2, 2)); // Detalhes irregulares
+                    } else if (layers[3].checked && maxDiff > 50) {
+                        edgePixels[y * resX + x] = 1;
+                    }
+                }}
+
+                if (layers[3].checked) {
+                    const visited = new Uint8Array(resX * resY);
+                    const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+                    for (let y = minY; y < maxY; y++) { for (let x = minX; x < maxX; x++) {
+                        let idx = y * resX + x;
+                        if (edgePixels[idx] && !visited[idx]) {
+                            let path = []; let cx = x, cy = y;
+                            while (true) {
+                                path.push({ x: cx, y: cy }); visited[cy * resX + cx] = 1; let found = false;
+                                for (let d of dirs) { let nx = cx + d[0], ny = cy + d[1]; if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) { let nIdx = ny * resX + nx; if (edgePixels[nIdx] && !visited[nIdx]) { cx = nx; cy = ny; found = true; break; }}}
+                                if (!found || path.length > 8000) break;
+                            }
+                            if (path.length > 5) { // Aplica suavização apenas a caminhos mais longos
+                                const smoothPath = createSmoothPath(path);
+                                finalScriptPaths.push({ layer: 4, points: smoothPath });
+                            } else if (path.length > 2) {
+                                finalScriptPaths.push({ layer: 4, points: path });
+                            }
+                        }
+                    }}
+                }
+            }
+            drawPreview(resX, resY);
+        }
+
+        // --- PREVISUALIZAÇÃO NO NAVEGADOR ---
+        function drawPreview(resX, resY) {
+            previewCanvas.width = resX; previewCanvas.height = resY;
+            const ctx = previewCanvas.getContext('2d');
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, resX, resY);
+            ctx.lineWidth = 3; ctx.strokeStyle = "black"; ctx.lineCap = "round"; ctx.lineJoin = "round";
+            
+            finalScriptPaths.sort((a, b) => a.layer - b.layer);
+            let pointsCount = 0;
+
+            ctx.beginPath();
+            for (let i = 0; i < finalScriptPaths.length; i++) {
+                const pts = finalScriptPaths[i].points;
+                if (pts.length === 0) continue;
+                pointsCount += pts.length;
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+            }
+            ctx.stroke();
+
+            statusText.innerHTML = `VETORES: <strong>${finalScriptPaths.length}</strong> | PONTOS TOTAIS: <strong>${pointsCount}</strong>`;
+            statusText.classList.remove('hidden');
+        }
+
+        fullscreenBtn.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : previewContainer.requestFullscreen(); });
+
+        // --- GERAÇÃO ZIP AUTO-CLICKER (Mantida para compatibilidade, sem suavização complexa) ---
+        function generateActionsTimeline() {
+            finalScriptPaths.sort((a, b) => a.layer - b.layer);
+            const mins = parseInt(timeMinInput.value) || 0; const secs = parseInt(timeSecInput.value) || 0;
+            let targetTimeMs = (mins * 60 + secs) * 1000; if(targetTimeMs < 1000 && targetTimeMs !== 0) targetTimeMs = 1000; 
+
+            let estimatedPoints = finalScriptPaths.reduce((sum, p) => sum + p.points.length, 0);
+            let interpolador = 5; // Valor base menor para ser mais fiel aos novos estilos
+            if (targetTimeMs > 0 && targetTimeMs / estimatedPoints < 10) interpolador = 15; // Aumenta interpolação se o tempo for curto
+
+            let actions = [];
+            for (let j = 0; j < finalScriptPaths.length; j++) {
+                const pts = finalScriptPaths[j].points;
+                if (pts.length < 2) continue;
+                actions.push({ type: 'down', x: pts[0].x, y: pts[0].y });
+                for (let p = 1; p < pts.length; p++) {
+                    const p1 = pts[p-1]; const p2 = pts[p];
+                    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    const steps = Math.max(1, Math.floor(dist / interpolador)); 
+                    for (let i = 1; i <= steps; i++) {
+                        actions.push({ type: 'move', x: p1.x + (p2.x - p1.x) * (i/steps), y: p1.y + (p2.y - p1.y) * (i/steps) });
+                    }
+                }
+                actions.push({ type: 'up', x: pts[pts.length-1].x, y: pts[pts.length-1].y });
+            }
+            const timeStep = (actions.length > 0 && targetTimeMs > 0) ? targetTimeMs / actions.length : 15;
+            let currentTimeMs = 1500; 
+            return actions.map(action => { const ac = { ...action, time: Math.round(currentTimeMs) }; currentTimeMs += timeStep; return ac; });
+        }
+
+        generateZipBtn.addEventListener('click', async () => {
+            if (finalScriptPaths.length === 0) return;
+            const originalText = generateZipBtn.innerHTML;
+            generateZipBtn.innerHTML = "A gerar ZIP..."; generateZipBtn.disabled = true;
+            setTimeout(async () => {
+                const resX = parseInt(resXInput.value) || 1100; const resY = parseInt(resYInput.value) || 2442;
+                const baseRes = `${resX}|${resY}`; const baseName = scriptNameInput.value || "Plotter_Script";
+                const actionsTimeline = generateActionsTimeline();
+                let scriptOutput = "";
+                for(let action of actionsTimeline) {
+                    if(action.type === 'down') scriptOutput += `0ScRiPtSePaRaToR${baseRes}|MULTI:1:0:${Math.round(action.x)}:${Math.round(action.y)}ScRiPtSePaRaToR${action.time}\r\n`;
+                    else if (action.type === 'move') scriptOutput += `0ScRiPtSePaRaToR${baseRes}|MULTI:1:2:${Math.round(action.x)}:${Math.round(action.y)}ScRiPtSePaRaToR${action.time}\r\n`;
+                    else if (action.type === 'up') {
+                        scriptOutput += `0ScRiPtSePaRaToR${baseRes}|MULTI:0:6ScRiPtSePaRaToR${action.time}\r\n0ScRiPtSePaRaToR${baseRes}|MULTI:0:6ScRiPtSePaRaToR${action.time}\r\n0ScRiPtSePaRaToR${baseRes}|MULTI:0:1ScRiPtSePaRaToR${action.time}\r\n0ScRiPtSePaRaToR${baseRes}|MSBRL:0:0ScRiPtSePaRaToR${action.time}\r\n`;
+                    }
+                }
+                const scriptId = "cd6be068968e45e08aad2fd9e0e5f11e"; 
+                const exportJson = { [scriptId]: { "combination": "false", "len": scriptOutput.length.toString(), "name": baseName, "needShow": "true", "new": "true", "playSet": { "accelerator": "1", "interval": "0", "mode": "0", "playOnStart": "false", "playSeconds": "0#0#0", "repeatTimes": "1", "restartPlayer": "false", "restartTime": "60" }, "priority": "0", "time": Math.floor(Date.now() / 1000).toString() } };
+                const zip = new JSZip(); zip.file(scriptId, scriptOutput); zip.file("export", JSON.stringify(exportJson, null, 4));
+                const blob = await zip.generateAsync({ type: "blob" });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${baseName}.zip`; 
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); generateZipBtn.innerHTML = originalText; generateZipBtn.disabled = false;
+            }, 100);
+        });
+
+        // --- EXPORTAÇÃO AUTO.JS COM NOME, CHUNKING E SUPORTE A CURVAS ---
+        generateJsBtn.addEventListener('click', () => {
+            if (finalScriptPaths.length === 0) return;
+            const originalText = generateJsBtn.innerHTML;
+            generateJsBtn.innerHTML = "A gerar Auto.js..."; generateJsBtn.disabled = true;
+            setTimeout(() => {
+                const resX = parseInt(resXInput.value) || 1100; const resY = parseInt(resYInput.value) || 2442;
+                const baseName = scriptNameInput.value || "Arte";
+                let targetTimeMs = ((parseInt(timeMinInput.value) || 0) * 60 + (parseInt(timeSecInput.value) || 0)) * 1000;
+                const nomesCamadas = { 1: "Fundo", 2: "Sombras Hachuradas", 3: "Detalhes Finos", 4: "Borda Contínua" };
+                let layersData = { 1: [], 2: [], 3: [], 4: [] };
+                let totalGestures = 0; let baseStrokeTime = 0;
+
+                finalScriptPaths.forEach(p => {
+                    const MAX_POINTS = 120; // Reduzido para garantir estabilidade com muitos pontos pequenos
+                    for (let i = 0; i < p.points.length; i += (MAX_POINTS - 1)) {
+                        let chunk = p.points.slice(i, i + MAX_POINTS);
+                        if (chunk.length < 2) continue;
+                        totalGestures++;
+                        baseStrokeTime += Math.max(100, chunk.length * 8); // Ajuste no tempo base para traços mais curtos
+                        let coordsStr = chunk.map(pt => `[${Math.round(pt.x)},${Math.round(pt.y)}]`).join(', ');
+                        layersData[p.layer].push(`    [\n      ${coordsStr}\n    ]`);
+                    }
+                });
+
+                let totalSleepsMs = totalGestures * 35 + 200;
+                let targetStrokeTime = targetTimeMs - totalSleepsMs;
+                let multiplicador = 0.500;
+                if (targetTimeMs === 0) multiplicador = 0.500; 
+                else if (targetStrokeTime > 0 && baseStrokeTime > 0) multiplicador = targetStrokeTime / baseStrokeTime;
+                else multiplicador = 0.05; 
+                multiplicador = Math.max(0.01, multiplicador).toFixed(3);
+
+                let camBlocks = [];
+                camBlocks.push(`  { nome: "Pré-Traço Inicial (Anti-Bug)", isWarmup: true, del: 0, trs: [\n    [\n      [${Math.round(resX/2)},${Math.round(resY/2)}], [${Math.round(resX/2)+5},${Math.round(resY/2)+5}]\n    ]\n  ] }`);
+                for(let l = 1; l <= 4; l++) {
+                    if(layersData[l].length > 0) {
+                        camBlocks.push(`  { nome: "[${baseName}] Camada ${l}: ${nomesCamadas[l]}", del: 0, trs: [\n${layersData[l].join(',\n')}\n  ] }`);
+                    }
+                }
+
+                let beepCode = "";
+                if (beepNotifyInput.checked) {
+                    beepCode = `\n// --- SINAL DE FINALIZAÇÃO (BIP) ---\ntry {\n    importClass(android.media.AudioManager);\n    importClass(android.media.ToneGenerator);\n    var geradorBip = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);\n    geradorBip.startTone(ToneGenerator.TONE_PROP_BEEP, 500);\n    sleep(600);\n    geradorBip.release();\n} catch (e) { console.error(e); }`;
+                }
+
+                const jsContent = `// --- AUTO.JS VECTOR STUDIO ---
+// Engine: Múltiplos Arquivos | Modo: Artístico
+// Arte: ${baseName}
+
+setScreenMetrics(${resX}, ${resY});
+
+var MULTIPLICADOR = ${multiplicador};
+
+function desenharWarmup(pts) {
+    if(pts.length < 2) return;
+    var dur = Math.max(300, pts.length * 15);
+    gesture.apply(null, [dur].concat(pts));
+    sleep(200);
+}
+
+function desenharTraco(pts) {
+    if(pts.length < 2) return;
+    var dur = Math.floor(Math.max(100, pts.length * 10) * MULTIPLICADOR);
+    if(dur < Math.max(60, pts.length * 4)) dur = Math.max(60, pts.length * 4); // Limite inferior mais permissivo
+    if(dur > 60000) dur = 60000;
+    gesture.apply(null, [dur].concat(pts)); sleep(35);
+}
+
+var cam = [
+${camBlocks.join(',\n')}
+];
+
+// --- EXECUÇÃO PRINCIPAL ---
+for (var k = 0; k < cam.length; k++) {
+    var cmd = cam[k];
+    if (cmd.isWarmup) {
+        toast("Executando Pré-Traço...");
+        for (var t = 0; t < cmd.trs.length; t++) { desenharWarmup(cmd.trs[t]); }
+        continue;
+    }
+    if (cmd.del > 0) { toast("Espere " + (cmd.del/1000) + "s: " + cmd.nome); sleep(cmd.del); }
+    else { toast("A desenhar: " + cmd.nome); }
+    for (var t = 0; t < cmd.trs.length; t++) { desenharTraco(cmd.trs[t]); }
+}
+toast("${baseName} Finalizado!");${beepCode}
+`;
+                const blob = new Blob([jsContent], { type: "text/javascript" });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${baseName}.js`; 
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); generateJsBtn.innerHTML = originalText; generateJsBtn.disabled = false;
+            }, 100);
+        });
+    </script>
+</body>
+</html>
+
+
+```
