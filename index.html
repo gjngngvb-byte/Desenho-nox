@@ -431,7 +431,7 @@
 
 
         // --- UNIÃO GEOMÉTRICA DE TRAÇOS ---
-        async function mergeNearbyPaths(paths, tolerance) {
+        async function mergeNearbyPaths(paths, tolerance, runId) {
             const result=paths.map(p=>({layer:p.layer,points:p.points.map(pt=>({x:pt.x,y:pt.y}))}));
             const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
             let changed=true,passes=0,comparisons=0;
@@ -440,8 +440,9 @@
                 outer:for(let i=0;i<result.length;i++){
                     const A=result[i];if(!A||A.points.length<2)continue;
                     for(let j=i+1;j<result.length;j++){
-                        const B=result[j];if(!B||B.layer!==A.layer||B.points.length<2)continue;
-                        if (++comparisons % 1200 === 0) await yieldToUI();
+                        const B=result[j];if(!B)continue;
+                        if (++comparisons % 1200 === 0) { await yieldToUI(); if (runId !== processingRunId) return result.filter(p=>p&&p.points.length>=2); }
+                        if(B.layer!==A.layer||B.points.length<2)continue;
                         // Segmentos retos colineares: funde sobreposições e pequenas lacunas.
                         if(A.points.length===2&&B.points.length===2){
                             const a=A.points[0],b=A.points[1],c=B.points[0],d=B.points[1],len=distance(a,b);
@@ -667,7 +668,7 @@
                 statusText.textContent = `Unificando ${finalScriptPaths.length.toLocaleString('pt-BR')} traços...`;
                 await yieldToUI();
                 if (runId !== processingRunId) return;
-                finalScriptPaths = await mergeNearbyPaths(finalScriptPaths, Number(mergeToleranceInput.value) || 0);
+                finalScriptPaths = await mergeNearbyPaths(finalScriptPaths, Number(mergeToleranceInput.value) || 0, runId);
             }
             if (runId !== processingRunId) return;
             drawPreview(resX, resY);
