@@ -753,6 +753,7 @@
                 const timing = calculateTimeMultiplier(gestureChunkLengths, targetTimeMs);
                 const multiplicador = timing.multiplier.toFixed(6);
                 const pausaExtra = timing.extraPauseMs.toFixed(2);
+                const tempoAbaixoMinimo = targetTimeMs > 0 && targetTimeMs < timing.minimumMs;
 
                 let camBlocks = [];
                 camBlocks.push(`  { nome: "Pré-Traço Inicial (Anti-Bug)", isWarmup: true, del: 0, trs: [\n    [\n      [${Math.round(resX/2)},${Math.round(resY/2)}], [${Math.round(resX/2)+5},${Math.round(resY/2)+5}]\n    ]\n  ] }`);
@@ -775,6 +776,7 @@ setScreenMetrics(${resX}, ${resY});
 
 var MULTIPLICADOR = ${multiplicador};
 var PAUSA_EXTRA = ${pausaExtra};
+var TEMPO_ABAIXO_MINIMO = ${tempoAbaixoMinimo};
 
 function desenharWarmup(pts) {
     if(pts.length < 2) return;
@@ -796,6 +798,7 @@ ${camBlocks.join(',\n')}
 ];
 
 // --- EXECUÇÃO PRINCIPAL ---
+if (TEMPO_ABAIXO_MINIMO) toast("Aviso: o desenho precisa de mais tempo. Executando na velocidade mínima possível.");
 for (var k = 0; k < cam.length; k++) {
     var cmd = cam[k];
     if (cmd.isWarmup) {
