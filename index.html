@@ -469,12 +469,14 @@
                 const base=Math.max(100,pts*10),minimum=Math.max(60,pts*4);
                 return sum+Math.min(60000,Math.max(minimum,Math.floor(base*m)));
             },0);
-            if(!targetTimeMs||targetTimeMs<=0)return {multiplier:0.5,minimumMs:fixedMs+strokeTime(0)};
+            if(!targetTimeMs||targetTimeMs<=0)return {multiplier:0.5,extraPauseMs:0,minimumMs:fixedMs+strokeTime(0)};
             const minimumMs=fixedMs+strokeTime(0);
-            if(targetTimeMs<=minimumMs)return {multiplier:0.000001,minimumMs};
+            if(targetTimeMs<=minimumMs)return {multiplier:0.000001,extraPauseMs:0,minimumMs};
+            const maximumMs=fixedMs+chunkLengths.length*60000;
+            if(targetTimeMs>=maximumMs)return {multiplier:10000,extraPauseMs:chunkLengths.length?(targetTimeMs-maximumMs)/chunkLengths.length:0,minimumMs};
             let low=0.000001,high=10000;
             for(let n=0;n<70;n++){const mid=(low+high)/2;if(fixedMs+strokeTime(mid)<targetTimeMs)low=mid;else high=mid;}
-            return {multiplier:low,minimumMs};
+            return {multiplier:low,extraPauseMs:0,minimumMs};
         }
 
         // --- MOTOR DE PROCESSAMENTO ---
@@ -750,6 +752,7 @@
                 });
                 const timing = calculateTimeMultiplier(gestureChunkLengths, targetTimeMs);
                 const multiplicador = timing.multiplier.toFixed(6);
+                const pausaExtra = timing.extraPauseMs.toFixed(2);
 
                 let camBlocks = [];
                 camBlocks.push(`  { nome: "Pré-Traço Inicial (Anti-Bug)", isWarmup: true, del: 0, trs: [\n    [\n      [${Math.round(resX/2)},${Math.round(resY/2)}], [${Math.round(resX/2)+5},${Math.round(resY/2)+5}]\n    ]\n  ] }`);
@@ -771,6 +774,7 @@
 setScreenMetrics(${resX}, ${resY});
 
 var MULTIPLICADOR = ${multiplicador};
+var PAUSA_EXTRA = ${pausaExtra};
 
 function desenharWarmup(pts) {
     if(pts.length < 2) return;
@@ -784,7 +788,7 @@ function desenharTraco(pts) {
     var dur = Math.floor(Math.max(100, pts.length * 10) * MULTIPLICADOR);
     if(dur < Math.max(60, pts.length * 4)) dur = Math.max(60, pts.length * 4); // Limite inferior mais permissivo
     if(dur > 60000) dur = 60000;
-    gesture.apply(null, [dur].concat(pts)); sleep(35);
+    gesture.apply(null, [dur].concat(pts)); sleep(35 + PAUSA_EXTRA);
 }
 
 var cam = [
