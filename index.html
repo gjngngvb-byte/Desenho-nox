@@ -257,6 +257,25 @@
         let isFlipX = false;
         let isFlipY = false;
 
+        // Processamento cooperativo: libera a thread principal entre blocos de trabalho.
+        const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
+        let processingRunId = 0;
+        async function runImageProcessing() {
+            const runId = ++processingRunId;
+            updateBtn.disabled = true;
+            updateBtn.textContent = "A processar imagem...";
+            statusText.textContent = "Preparando imagem...";
+            statusText.classList.remove('hidden');
+            try { await processImage(runId); }
+            catch (error) {
+                console.error("Erro ao processar imagem:", error);
+                statusText.textContent = "Erro ao processar imagem: " + (error && error.message ? error.message : error);
+                statusText.classList.remove('hidden');
+            } finally {
+                if (runId === processingRunId) { updateBtn.disabled = false; updateBtn.innerHTML = "Atualizar Visualização"; }
+            }
+        }
+
         // Listeners UI
         cellSizeInput.addEventListener('input', (e) => { cellSizeValue.textContent = `${e.target.value}px`; });
         mergeToleranceInput.addEventListener('input', (e) => {
@@ -277,11 +296,7 @@
             const originalText = updateBtn.innerHTML;
             updateBtn.innerHTML = "A processar...";
             updateBtn.disabled = true;
-            setTimeout(() => {
-                processImage();
-                updateBtn.innerHTML = originalText;
-                updateBtn.disabled = false;
-            }, 50);
+            runImageProcessing();
         });
 
         // Carregar Ficheiro e Definir Nome Automático
@@ -312,7 +327,7 @@
                 generateJsBtn.disabled = false;
                 updateBtn.disabled = false;
                 
-                processImage();
+                runImageProcessing();
                 URL.revokeObjectURL(url);
             };
             img.src = url;
@@ -416,16 +431,17 @@
 
 
         // --- UNIÃO GEOMÉTRICA DE TRAÇOS ---
-        function mergeNearbyPaths(paths, tolerance) {
+        async function mergeNearbyPaths(paths, tolerance) {
             const result=paths.map(p=>({layer:p.layer,points:p.points.map(pt=>({x:pt.x,y:pt.y}))}));
             const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-            let changed=true,passes=0;
+            let changed=true,passes=0,comparisons=0;
             while(changed&&passes++<1000){
                 changed=false;
                 outer:for(let i=0;i<result.length;i++){
                     const A=result[i];if(!A||A.points.length<2)continue;
                     for(let j=i+1;j<result.length;j++){
                         const B=result[j];if(!B||B.layer!==A.layer||B.points.length<2)continue;
+                        if (++comparisons % 1200 === 0) await yieldToUI();
                         // Segmentos retos colineares: funde sobreposições e pequenas lacunas.
                         if(A.points.length===2&&B.points.length===2){
                             const a=A.points[0],b=A.points[1],c=B.points[0],d=B.points[1],len=distance(a,b);
@@ -480,7 +496,7 @@
         }
 
         // --- MOTOR DE PROCESSAMENTO ---
-        function processImage() {
+        async function processImage(runId) {
             if (!originalImage) return;
 
             const hiddenCanvas = document.createElement('canvas');
@@ -531,7 +547,9 @@
                 if (getBrightness(imgData, resX, resY, x, y) < 250) {
                     if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y; hasContent = true;
                 }
-            }}
+            }
+                if (y % 64 === 0) { statusText.textContent = `Analisando imagem... ${Math.min(100, Math.round(y / resY * 100))}%`; await yieldToUI(); if (runId !== processingRunId) return; }
+            }
             if (!hasContent) { minX = 0; minY = 0; maxX = resX; maxY = resY; }
             else { minX = Math.max(0, minX - cellSize*2); minY = Math.max(0, minY - cellSize*2); maxX = Math.min(resX, maxX + cellSize*2); maxY = Math.min(resY, maxY + cellSize*2); }
 
@@ -540,7 +558,9 @@
                 const bgStep = cellSize * 2.5;
                 for (let y = minY; y < maxY; y += bgStep) { for (let x = minX; x < maxX; x += bgStep) {
                     if (getBrightness(imgData, resX, resY, x, y) > 240) addPolyline(1, createIrregularLine(x, y+bgStep/2, x+bgStep, y+bgStep/2, 3));
-                }}
+                }
+                    if (Math.floor((y-minY)/bgStep) % 12 === 0) { statusText.textContent = `Gerando fundo...`; await yieldToUI(); if (runId !== processingRunId) return; }
+                }
             }
 
             // Layer 2: Sombras e Hachuras Artísticas
@@ -601,7 +621,8 @@
                             else if (style === 'cruzada') { avgBrightness < 120 ? (addHatch(0,h,s,h), addHatch(h,0,h,s)) : addHatch(0,h,s,h); }
                         }
                     }
-                }}
+                    if (Math.floor((y-minY)/cellSize) % 8 === 0) { statusText.textContent = `Gerando hachuras...`; await yieldToUI(); if (runId !== processingRunId) return; }
+                }
             }
 
             // Layer 3 & 4: Detalhes e Bordas Suavizadas
@@ -615,7 +636,8 @@
                     } else if (layers[3].checked && maxDiff > 50) {
                         edgePixels[y * resX + x] = 1;
                     }
-                }}
+                    if ((y-minY) % 24 === 0) { statusText.textContent = `Detectando contornos...`; await yieldToUI(); if (runId !== processingRunId) return; }
+                }
 
                 if (layers[3].checked) {
                     const visited = new Uint8Array(resX * resY);
@@ -626,6 +648,7 @@
                             let path = []; let cx = x, cy = y;
                             while (true) {
                                 path.push({ x: cx, y: cy }); visited[cy * resX + cx] = 1; let found = false;
+                                if (path.length % 500 === 0) { await yieldToUI(); if (runId !== processingRunId) return; }
                                 for (let d of dirs) { let nx = cx + d[0], ny = cy + d[1]; if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) { let nIdx = ny * resX + nx; if (edgePixels[nIdx] && !visited[nIdx]) { cx = nx; cy = ny; found = true; break; }}}
                                 if (!found || path.length > 8000) break;
                             }
@@ -640,8 +663,12 @@
                 }
             }
             if (mergeLinesInput.checked) {
-                finalScriptPaths = mergeNearbyPaths(finalScriptPaths, Number(mergeToleranceInput.value) || 0);
+                statusText.textContent = `Unificando ${finalScriptPaths.length.toLocaleString('pt-BR')} traços...`;
+                await yieldToUI();
+                if (runId !== processingRunId) return;
+                finalScriptPaths = await mergeNearbyPaths(finalScriptPaths, Number(mergeToleranceInput.value) || 0);
             }
+            if (runId !== processingRunId) return;
             drawPreview(resX, resY);
         }
 
