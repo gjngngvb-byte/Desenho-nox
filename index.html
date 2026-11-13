@@ -271,6 +271,8 @@
                 console.error("Erro ao processar imagem:", error);
                 statusText.textContent = "Erro ao processar imagem: " + (error && error.message ? error.message : error);
                 statusText.classList.remove('hidden');
+                generateZipBtn.disabled = true;
+                generateJsBtn.disabled = true;
             } finally {
                 if (runId === processingRunId) { updateBtn.disabled = false; updateBtn.innerHTML = "Atualizar Visualização"; }
             }
@@ -292,10 +294,7 @@
         });
 
         updateBtn.addEventListener('click', () => {
-            if (!originalImage) return;
-            const originalText = updateBtn.innerHTML;
-            updateBtn.innerHTML = "A processar...";
-            updateBtn.disabled = true;
+            if (!originalImage || updateBtn.disabled) return;
             runImageProcessing();
         });
 
@@ -320,14 +319,19 @@
             const img = new Image();
             img.onload = () => {
                 originalImage = img;
-                placeholderText.classList.add('hidden');
-                previewCanvas.classList.remove('hidden');
-                fullscreenBtn.classList.remove('hidden');
-                generateZipBtn.disabled = false;
-                generateJsBtn.disabled = false;
+                // A imagem fica carregada, mas a prévia só é processada sob comando.
+                processingRunId++;
+                finalScriptPaths = [];
+                previewCanvas.classList.add('hidden');
+                fullscreenBtn.classList.add('hidden');
+                placeholderText.classList.remove('hidden');
+                placeholderText.innerHTML = 'Imagem carregada. Clique em “Atualizar Visualização” para processar.';
+                statusText.textContent = '';
+                statusText.classList.add('hidden');
+                generateZipBtn.disabled = true;
+                generateJsBtn.disabled = true;
                 updateBtn.disabled = false;
-                
-                runImageProcessing();
+                updateBtn.innerHTML = 'Atualizar Visualização';
                 URL.revokeObjectURL(url);
             };
             img.src = url;
@@ -677,6 +681,11 @@
         // --- PREVISUALIZAÇÃO NO NAVEGADOR ---
         function drawPreview(resX, resY) {
             previewCanvas.width = resX; previewCanvas.height = resY;
+            previewCanvas.classList.remove('hidden');
+            placeholderText.classList.add('hidden');
+            fullscreenBtn.classList.remove('hidden');
+            generateZipBtn.disabled = finalScriptPaths.length === 0;
+            generateJsBtn.disabled = finalScriptPaths.length === 0;
             const ctx = previewCanvas.getContext('2d');
             ctx.fillStyle = "white"; ctx.fillRect(0, 0, resX, resY);
             ctx.lineWidth = 3; ctx.strokeStyle = "black"; ctx.lineCap = "round"; ctx.lineJoin = "round";
