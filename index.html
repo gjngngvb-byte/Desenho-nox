@@ -33,7 +33,7 @@
             <!-- Secção 1: Arquivo e Resolução -->
             <section class="bg-gray-800 p-5 rounded-xl shadow border border-gray-700">
                 <label class="block text-sm font-bold mb-3 text-white border-b border-gray-600 pb-2">1. Imagem e Tela</label>
-                <input type="file" id="fileInput" accept="image/png, image/jpeg, image/svg+xml" 
+                <input type="file" id="fileInput" accept="image/*" 
                        class="block w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer mb-4"/>
                 
                 <div class="grid grid-cols-2 gap-3 mb-4">
@@ -298,43 +298,74 @@
             runImageProcessing();
         });
 
-        // Carregar Ficheiro e Definir Nome Automático
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
+        // Carregar a imagem sem iniciar o processamento da prévia.
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
             if (!file) return;
-            
-            // Extrai o nome do ficheiro sem extensão
+
             const rawName = file.name.replace(/\.[^/.]+$/, "");
             scriptNameInput.value = rawName || "Desenho_Autojs";
 
-            // Reseta Transformações
+            processingRunId++;
+            originalImage = null;
+            finalScriptPaths = [];
+            previewCanvas.classList.add('hidden');
+            fullscreenBtn.classList.add('hidden');
+            placeholderText.classList.remove('hidden');
+            placeholderText.textContent = 'Carregando imagem...';
+            statusText.textContent = '';
+            statusText.classList.add('hidden');
+            generateZipBtn.disabled = true;
+            generateJsBtn.disabled = true;
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Carregando imagem...';
+
             transformScale.value = "100";
             transformRotate.value = "0";
             transformX.value = "0";
             transformY.value = "0";
             isFlipX = false; isFlipY = false;
-            flipXBtn.classList.remove('active'); flipYBtn.classList.remove('active');
+            flipXBtn.classList.remove('active');
+            flipYBtn.classList.remove('active');
 
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                originalImage = img;
-                // A imagem fica carregada, mas a prévia só é processada sob comando.
-                processingRunId++;
-                finalScriptPaths = [];
-                previewCanvas.classList.add('hidden');
-                fullscreenBtn.classList.add('hidden');
-                placeholderText.classList.remove('hidden');
-                placeholderText.innerHTML = 'Imagem carregada. Clique em “Atualizar Visualização” para processar.';
-                statusText.textContent = '';
-                statusText.classList.add('hidden');
-                generateZipBtn.disabled = true;
-                generateJsBtn.disabled = true;
+            try {
+                // createImageBitmap lida melhor com formatos comuns de celulares (incluindo WebP).
+                if (typeof createImageBitmap === 'function') {
+                    try {
+                        originalImage = await createImageBitmap(file);
+                    } catch (bitmapError) {
+                        // Fallback para formatos suportados pelo elemento Image, como SVG.
+                        originalImage = await new Promise((resolve, reject) => {
+                            const url = URL.createObjectURL(file);
+                            const img = new Image();
+                            img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('O navegador não conseguiu abrir este formato de imagem. Use PNG ou JPG.')); };
+                            img.src = url;
+                        });
+                    }
+                } else {
+                    originalImage = await new Promise((resolve, reject) => {
+                        const url = URL.createObjectURL(file);
+                        const img = new Image();
+                        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('O navegador não conseguiu abrir este formato de imagem. Use PNG ou JPG.')); };
+                        img.src = url;
+                    });
+                }
+
+                // Imagem pronta, mas a prévia só aparece após clicar em Atualizar.
+                placeholderText.textContent = 'Imagem carregada. Clique em “Atualizar Visualização” para processar.';
                 updateBtn.disabled = false;
-                updateBtn.innerHTML = 'Atualizar Visualização';
-                URL.revokeObjectURL(url);
-            };
-            img.src = url;
+                updateBtn.textContent = 'Atualizar Visualização';
+            } catch (error) {
+                originalImage = null;
+                placeholderText.textContent = 'Não foi possível carregar esta imagem.';
+                statusText.textContent = 'Erro ao carregar imagem: ' + (error && error.message ? error.message : error);
+                statusText.classList.remove('hidden');
+                updateBtn.disabled = true;
+                updateBtn.textContent = 'Atualizar Visualização';
+                console.error('Erro ao carregar imagem:', error);
+            }
         });
 
         function getBrightness(imgData, w, h, x, y) {
