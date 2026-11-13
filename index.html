@@ -636,6 +636,7 @@
                     } else if (layers[3].checked && maxDiff > 50) {
                         edgePixels[y * resX + x] = 1;
                     }
+                }
                     if ((y-minY) % 24 === 0) { statusText.textContent = `Detectando contornos...`; await yieldToUI(); if (runId !== processingRunId) return; }
                 }
 
